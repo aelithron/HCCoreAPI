@@ -1,0 +1,12 @@
+name: HCCoreAPI
+description: $description
+prefix: HCCore-API
+version: '${version}'
+
+main: com.hackclub.hccoreapi.HCCoreAPI
+api-version: '1.21.11'
+load: POSTWORLD
+depend: [ HCCore ]
+
+authors: [ Nova, Hack Club ]
+website: https://hackclub.com/minecraft
