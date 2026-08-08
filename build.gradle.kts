@@ -14,6 +14,7 @@ dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("com.github.hackclub:HCCore:37b2603a15")
     implementation("io.javalin:javalin:7.2.2")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
 }
 
 java {
