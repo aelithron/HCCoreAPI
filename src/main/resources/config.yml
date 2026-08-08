@@ -1,0 +1,5 @@
+# HCCore API by Nova (made for Hack Club)
+# This is a companion plugin to HCCore (https://github.com/aelithron/HCCore) that implements a web API to expose some extras.
+
+# Port the API will run on
+port: 7600
