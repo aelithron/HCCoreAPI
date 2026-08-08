@@ -17,6 +17,7 @@ import java.util.logging.Level;
 
 public final class HCCoreAPI extends JavaPlugin {
     private Javalin app;
+    private KeyManager keys;
     @Override
     public void onEnable() {
         getConfig().options().copyDefaults();
@@ -44,13 +45,15 @@ public final class HCCoreAPI extends JavaPlugin {
                     PlayerData data = hccore.getDataManager().getData(player);
                     list.add(new PlayerInfo(player.getUniqueId(), data.getSlackId(), new Nickname(data.getUsableName(), data.getNameColor().asHexString())));
                 } else if (ctx.queryParam("slack") != null) {
-                    PlayerData data = hccore.getDataManager().findData(pData -> Objects.equals(pData.getSlackId(), ctx.queryParam("slack")));
+                    List<PlayerData> data = hccore.getDataManager().findDataMany(pData -> Objects.equals(pData.getSlackId(), ctx.queryParam("slack")));
                     if (data == null) {
                         ctx.status(404);
                         ctx.json(new APIError("unknown_slack_id", "This Slack ID isn't linked to any Minecraft player!"));
                         return;
                     }
-                    list.add(new PlayerInfo(data.offlinePlayer.getUniqueId(), data.getSlackId(), new Nickname(data.getUsableName(), data.getNameColor().asHexString())));
+                    for (PlayerData pData : data) {
+                        list.add(new PlayerInfo(pData.offlinePlayer.getUniqueId(), pData.getSlackId(), new Nickname(pData.getUsableName(), pData.getNameColor().asHexString())));
+                    }
                 } else if (ctx.queryParam("nick") != null) {
                     PlayerData data = hccore.getDataManager().findData(pData -> Objects.equals(pData.getUsableName(), ctx.queryParam("nick")));
                     if (data == null) {
@@ -68,6 +71,7 @@ public final class HCCoreAPI extends JavaPlugin {
                 ctx.json(list);
             });
         });
+        keys = new KeyManager(this);
         getLogger().log(Level.INFO, "Starting HCCore-API server (on port " + port + ")...");
         app.start(port);
     }
