@@ -2,6 +2,7 @@ package com.hackclub.hccoreapi;
 
 import com.hackclub.hccore.HCCorePlugin;
 import com.hackclub.hccore.PlayerData;
+import com.hackclub.hccoreapi.DataTypes.APIAccess;
 import com.hackclub.hccoreapi.DataTypes.APIError;
 import com.hackclub.hccoreapi.DataTypes.Nickname;
 import com.hackclub.hccoreapi.DataTypes.PlayerInfo;
@@ -18,6 +19,7 @@ import java.util.logging.Level;
 public final class HCCoreAPI extends JavaPlugin {
     private Javalin app;
     private KeyManager keys;
+    private RateLimitManager limits;
     private HCCorePlugin hccore;
     @Override
     public void onEnable() {
@@ -33,15 +35,27 @@ public final class HCCoreAPI extends JavaPlugin {
             return;
         }
         keys = new KeyManager(this);
+        limits = new RateLimitManager();
 
         app = Javalin.create(config -> {
             config.routes.get("/player", ctx -> {
                 String apiKey = ctx.header("Authorization");
-                if (apiKey == null) {
+                if (apiKey == null || apiKey.split("Bearer ").length < 2) {
                     ctx.status(401);
-                    ctx.json(new APIError("unauthorized", "No API key was found in your request! Make sure you are sending an \"Authorization\" header in your request, with the word Bearer followed by a valid API key."));
+                    ctx.json(new APIError("unauthorized", "No API key was found in your request, or it was malformed! Make sure you are sending an \"Authorization\" header in your request, with the word Bearer followed by a valid API key."));
                     return;
                 }
+                APIAccess access = keys.getAccessByKey(apiKey.split("Bearer ")[1]);
+                if (access == null || !access.validate()) {
+                    ctx.status(403);
+                    ctx.json(new APIError("forbidden", "The provided API key is invalid or has been disabled! Check that your key exists, is correctly entered, that you haven't been told about it being disabled, and that your Authorization header is properly formatted (\"Authorization\"=\"Bearer <your_key>\")."));
+                    return;
+                }
+                if (limits.isRateLimited(access)) {
+                    ctx.status(422);
+                    ctx.json(new APIError("rate_limited", "The provided API key has exceeded its rate limit of " + access.rateLimit + " requests per minute. Please retry in one minute."));
+                }
+                limits.countRateLimit(access);
                 List<PlayerInfo> list = new ArrayList<>();
                 if (ctx.queryParam("uuid") != null) {
                     OfflinePlayer player = getServer().getOfflinePlayer(UUID.fromString(Objects.requireNonNull(ctx.queryParam("uuid"))));
