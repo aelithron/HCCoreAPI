@@ -35,9 +35,34 @@ public final class HCCoreAPI extends JavaPlugin {
         }
         keys = new KeyManager(this);
         limits = new RateLimitManager();
+        app = getApp();
+        getLogger().log(Level.INFO, "Starting HCCore-API server (on port " + port + ")...");
+        app.start(port);
+    }
 
-        app = Javalin.create(config -> {
+    @Override
+    public void onDisable() {
+        limits.resetAllLimits();
+        getLogger().log(Level.INFO, "Shutting down HCCore-API server...");
+        app.stop();
+    }
+
+    public void reloadPlugin() {
+        getLogger().log(Level.INFO, "Shutting down HCCore-API server (reload)...");
+        app.stop();
+        reloadConfig();
+        limits.resetAllLimits();
+        keys = new KeyManager(this);
+        limits = new RateLimitManager();
+        app = getApp();
+        int port = getConfig().getInt("port", 7600);
+        getLogger().log(Level.INFO, "Starting HCCore-API server (reload) (on port " + port + ")...");
+        app.start(port);
+    }
+    private Javalin getApp() {
+        return Javalin.create(config -> {
             config.startup.showJavalinBanner = false;
+            config.startup.showOldJavalinVersionWarning = false;
             config.routes.get("/player", ctx -> {
                 String apiKey = ctx.header("Authorization");
                 if (apiKey == null || apiKey.split("Bearer ").length < 2) {
@@ -114,26 +139,5 @@ public final class HCCoreAPI extends JavaPlugin {
                 ctx.json(list);
             });
         });
-        getLogger().log(Level.INFO, "Starting HCCore-API server (on port " + port + ")...");
-        app.start(port);
-    }
-
-    @Override
-    public void onDisable() {
-        limits.resetAllLimits();
-        getLogger().log(Level.INFO, "Shutting down HCCore-API server...");
-        app.stop();
-    }
-
-    public void reloadPlugin() {
-        getLogger().log(Level.INFO, "Shutting down HCCore-API server (reload)...");
-        app.stop();
-        reloadConfig();
-        limits.resetAllLimits();
-        keys = new KeyManager(this);
-        limits = new RateLimitManager();
-        int port = getConfig().getInt("port", 7600);
-        getLogger().log(Level.INFO, "Starting HCCore-API server (reload) (on port " + port + ")...");
-        app.start(port);
     }
 }

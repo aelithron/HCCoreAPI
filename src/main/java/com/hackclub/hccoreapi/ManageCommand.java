@@ -27,10 +27,12 @@ public class ManageCommand implements TabExecutor {
             case "reload":
                 plugin.reloadPlugin();
                 sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Reloaded the web API!"));
+                break;
             default:
                 sendHelpMsg(sender);
+                break;
         }
-        return false;
+        return true;
     }
 
     @Override
