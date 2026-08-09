@@ -38,6 +38,7 @@ public final class HCCoreAPI extends JavaPlugin {
         limits = new RateLimitManager();
 
         app = Javalin.create(config -> {
+            config.startup.showJavalinBanner = false;
             config.routes.get("/player", ctx -> {
                 String apiKey = ctx.header("Authorization");
                 if (apiKey == null || apiKey.split("Bearer ").length < 2) {
@@ -48,12 +49,13 @@ public final class HCCoreAPI extends JavaPlugin {
                 APIAccess access = keys.getAccessByKey(apiKey.split("Bearer ")[1]);
                 if (access == null || !access.validate()) {
                     ctx.status(403);
-                    ctx.json(new APIError("forbidden", "The provided API key is invalid or has been disabled! Check that your key exists, is correctly entered, that you haven't been told about it being disabled, and that your Authorization header is properly formatted (\"Authorization\"=\"Bearer <your_key>\")."));
+                    ctx.json(new APIError("forbidden", "The provided API key is invalid or has been disabled! Check that your key exists, is correctly entered, that you haven't been told about it being disabled, and that your Authorization header is properly formatted (\"Authorization\": \"Bearer <your_key>\")."));
                     return;
                 }
                 if (limits.isRateLimited(access)) {
                     ctx.status(422);
-                    ctx.json(new APIError("rate_limited", "The provided API key has exceeded its rate limit of " + access.rateLimit + " requests per minute. Please retry in one minute."));
+                    ctx.json(new APIError("rate_limited", "The provided API key has exceeded its rate limit of " + access.rateLimit + " request(s) per minute. Please retry in one minute."));
+                    return;
                 }
                 limits.countRateLimit(access);
                 List<PlayerInfo> list = new ArrayList<>();

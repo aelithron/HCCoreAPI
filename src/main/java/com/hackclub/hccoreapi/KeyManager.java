@@ -36,6 +36,6 @@ public class KeyManager {
         return getAccessByID(id);
     }
     public boolean isKeyValid(APIAccess access) {
-        return plugin.getConfig().getBoolean("keys" + access.id + ".enabled", false);
+        return plugin.getConfig().getBoolean("keys." + access.id + ".enabled", false);
     }
 }

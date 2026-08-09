@@ -17,7 +17,7 @@ public class RateLimitManager {
             rateLimits.remove(access.id);
             return false;
         }
-        return (info.getCount() >= access.rateLimit);
+        return info.getCount() >= access.rateLimit;
     }
     public void countRateLimit(APIAccess access) {
         RateLimitInfo info = rateLimits.get(access.id);
