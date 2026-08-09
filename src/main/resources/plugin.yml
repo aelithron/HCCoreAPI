@@ -10,3 +10,11 @@ depend: [ HCCore ]
 
 authors: [ Nova, Hack Club ]
 website: https://hackclub.com/minecraft
+
+commands:
+  webapi:
+    description: Manage the HCCore Web API!
+    aliases:
+      - hccapi
+      - coreapi
+      - api

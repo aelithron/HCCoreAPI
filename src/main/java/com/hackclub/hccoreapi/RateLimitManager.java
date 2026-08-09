@@ -30,4 +30,7 @@ public class RateLimitManager {
     public RateLimitInfo getLimitInfo(APIAccess access) {
         return rateLimits.get(access.id);
     }
+    public void resetAllLimits() {
+        rateLimits.clear();
+    }
 }

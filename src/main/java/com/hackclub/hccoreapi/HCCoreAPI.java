@@ -23,6 +23,8 @@ public final class HCCoreAPI extends JavaPlugin {
         getConfig().options().copyDefaults();
         saveDefaultConfig();
         int port = getConfig().getInt("port", 7600);
+        getCommand("webapi").setExecutor(new ManageCommand(this));
+        getCommand("webapi").setTabCompleter(new ManageCommand(this));
         hccore = (HCCorePlugin) getServer().getPluginManager().getPlugin("HCCore");
         try {
             Objects.requireNonNull(Objects.requireNonNull(hccore).getDataManager());
@@ -57,7 +59,7 @@ public final class HCCoreAPI extends JavaPlugin {
                     return;
                 }
                 limits.countRateLimit(access);
-                String searchType;
+                String lookupType;
                 List<PlayerInfo> list = new ArrayList<>();
                 if (ctx.queryParam("uuid") != null) {
                     UUID playerUUID;
@@ -76,7 +78,7 @@ public final class HCCoreAPI extends JavaPlugin {
                     }
                     PlayerData data = hccore.getDataManager().getData(player);
                     list.add(new PlayerInfo(player.getUniqueId(), data.getSlackId(), new Nickname(data.getUsableName(), data.getNameColor().asHexString())));
-                    searchType = "uuid";
+                    lookupType = "uuid";
                 } else if (ctx.queryParam("slack") != null) {
                     List<PlayerData> data = hccore.getDataManager().findDataMany(pData -> Objects.equals(pData.getSlackId(), ctx.queryParam("slack")));
                     if (data == null || data.isEmpty()) {
@@ -87,7 +89,7 @@ public final class HCCoreAPI extends JavaPlugin {
                     for (PlayerData pData : data) {
                         list.add(new PlayerInfo(pData.offlinePlayer.getUniqueId(), pData.getSlackId(), new Nickname(pData.getUsableName(), pData.getNameColor().asHexString())));
                     }
-                    searchType = "slack";
+                    lookupType = "slack";
                 } else if (ctx.queryParam("nick") != null) {
                     List<PlayerData> data = hccore.getDataManager().findDataMany(pData -> Objects.equals(pData.getUsableName(), ctx.queryParam("nick")));
                     if (data == null || data.isEmpty()) {
@@ -98,15 +100,15 @@ public final class HCCoreAPI extends JavaPlugin {
                     for (PlayerData pData : data) {
                         list.add(new PlayerInfo(pData.offlinePlayer.getUniqueId(), pData.getSlackId(), new Nickname(pData.getUsableName(), pData.getNameColor().asHexString())));
                     }
-                    searchType = "nick";
+                    lookupType = "nick";
                 } else {
                     ctx.status(400);
-                    ctx.json(new APIError("no_search", "You didn't include anything to search by! Include either \"?uuid=<a player's UUID>\", \"?slack=<a slack id>\", or \"?nick=<an HTML-encoded nickname>\" at the end of your URL."));
+                    ctx.json(new APIError("no_param", "You didn't include anything to use in the lookup! Include either \"?uuid=<a player's UUID>\", \"?slack=<a slack id>\", or \"?nick=<an HTML-encoded nickname>\" at the end of your URL."));
                     return;
                 }
                 RateLimitInfo limitInfo = limits.getLimitInfo(access);
                 ctx.status(200);
-                ctx.header("Search-Type", searchType);
+                ctx.header("Lookup-Type", lookupType);
                 ctx.header("Rate-Limit-Remaining", String.valueOf(access.rateLimit - limitInfo.getCount()));
                 ctx.header("Rate-Limit-Reset", String.valueOf(Math.max(0L, (Math.round(limitInfo.getExpiry() - System.currentTimeMillis()) / 1000L))));
                 ctx.json(list);
@@ -118,7 +120,20 @@ public final class HCCoreAPI extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        limits.resetAllLimits();
         getLogger().log(Level.INFO, "Shutting down HCCore-API server...");
         app.stop();
+    }
+
+    public void reloadPlugin() {
+        getLogger().log(Level.INFO, "Shutting down HCCore-API server (reload)...");
+        app.stop();
+        reloadConfig();
+        limits.resetAllLimits();
+        keys = new KeyManager(this);
+        limits = new RateLimitManager();
+        int port = getConfig().getInt("port", 7600);
+        getLogger().log(Level.INFO, "Starting HCCore-API server (reload) (on port " + port + ")...");
+        app.start(port);
     }
 }
