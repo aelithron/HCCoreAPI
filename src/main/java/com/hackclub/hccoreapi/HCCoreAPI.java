@@ -18,23 +18,31 @@ import java.util.logging.Level;
 public final class HCCoreAPI extends JavaPlugin {
     private Javalin app;
     private KeyManager keys;
+    private HCCorePlugin hccore;
     @Override
     public void onEnable() {
         getConfig().options().copyDefaults();
         saveDefaultConfig();
         int port = getConfig().getInt("port", 7600);
+        hccore = (HCCorePlugin) getServer().getPluginManager().getPlugin("HCCore");
+        try {
+            Objects.requireNonNull(Objects.requireNonNull(hccore).getDataManager());
+        } catch (NullPointerException e) {
+            getLogger().log(Level.SEVERE, "Error initializing HCCore for the API!" + System.lineSeparator() + "This plugin will disable now, please check on HCCore and make sure it is installed." + System.lineSeparator() + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+        keys = new KeyManager(this);
+
         app = Javalin.create(config -> {
             config.routes.get("/player", ctx -> {
-                List<PlayerInfo> list = new ArrayList<>();
-                HCCorePlugin hccore = (HCCorePlugin) getServer().getPluginManager().getPlugin("HCCore");
-                try {
-                    Objects.requireNonNull(Objects.requireNonNull(hccore).getDataManager());
-                } catch (NullPointerException e) {
-                    getLogger().log(Level.SEVERE, "Error initializing HCCore for the API:\n" + e.getMessage());
-                    ctx.status(500);
-                    ctx.json(new APIError("server", "There was an error on the server, ask an admin to check the console."));
+                String apiKey = ctx.header("Authorization");
+                if (apiKey == null) {
+                    ctx.status(401);
+                    ctx.json(new APIError("unauthorized", "No API key was found in your request! Make sure you are sending an \"Authorization\" header in your request, with the word Bearer followed by a valid API key."));
                     return;
                 }
+                List<PlayerInfo> list = new ArrayList<>();
                 if (ctx.queryParam("uuid") != null) {
                     OfflinePlayer player = getServer().getOfflinePlayer(UUID.fromString(Objects.requireNonNull(ctx.queryParam("uuid"))));
                     if (!player.hasPlayedBefore()) {
@@ -71,7 +79,6 @@ public final class HCCoreAPI extends JavaPlugin {
                 ctx.json(list);
             });
         });
-        keys = new KeyManager(this);
         getLogger().log(Level.INFO, "Starting HCCore-API server (on port " + port + ")...");
         app.start(port);
     }
