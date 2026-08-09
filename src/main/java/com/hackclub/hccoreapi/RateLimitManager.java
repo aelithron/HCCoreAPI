@@ -27,4 +27,7 @@ public class RateLimitManager {
         }
         info.incrementCount();
     }
+    public RateLimitInfo getLimitInfo(APIAccess access) {
+        return rateLimits.get(access.id);
+    }
 }

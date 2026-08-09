@@ -2,10 +2,7 @@ package com.hackclub.hccoreapi;
 
 import com.hackclub.hccore.HCCorePlugin;
 import com.hackclub.hccore.PlayerData;
-import com.hackclub.hccoreapi.DataTypes.APIAccess;
-import com.hackclub.hccoreapi.DataTypes.APIError;
-import com.hackclub.hccoreapi.DataTypes.Nickname;
-import com.hackclub.hccoreapi.DataTypes.PlayerInfo;
+import com.hackclub.hccoreapi.DataTypes.*;
 import io.javalin.Javalin;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -53,14 +50,25 @@ public final class HCCoreAPI extends JavaPlugin {
                     return;
                 }
                 if (limits.isRateLimited(access)) {
-                    ctx.status(422);
-                    ctx.json(new APIError("rate_limited", "The provided API key has exceeded its rate limit of " + access.rateLimit + " request(s) per minute. Please retry in one minute."));
+                    long expiryUntil = Math.max(0L, (Math.round(limits.getLimitInfo(access).getExpiry() - System.currentTimeMillis()) / 1000L));
+                    ctx.status(429);
+                    ctx.json(new APIError("rate_limited", "The provided API key has exceeded its rate limit of " + access.rateLimit + " request(s) per minute. Please retry in " + expiryUntil + " second(s)."));
+                    ctx.header("Retry-After", String.valueOf(expiryUntil));
                     return;
                 }
                 limits.countRateLimit(access);
+                String searchType;
                 List<PlayerInfo> list = new ArrayList<>();
                 if (ctx.queryParam("uuid") != null) {
-                    OfflinePlayer player = getServer().getOfflinePlayer(UUID.fromString(Objects.requireNonNull(ctx.queryParam("uuid"))));
+                    UUID playerUUID;
+                    try {
+                        playerUUID = UUID.fromString(Objects.requireNonNull(ctx.queryParam("uuid")));
+                    } catch (IllegalArgumentException ignored) {
+                        ctx.status(400);
+                        ctx.json(new APIError("invalid_uuid", "This UUID is malformed! Make sure you are sending a valid, hyphenated UUID, such as eb7ea62d-b7aa-4d6e-b68a-d7e948780f03."));
+                        return;
+                    }
+                    OfflinePlayer player = getServer().getOfflinePlayer(playerUUID);
                     if (!player.hasPlayedBefore()) {
                         ctx.status(404);
                         ctx.json(new APIError("unknown_uuid", "This player hasn't played on the server before!"));
@@ -68,9 +76,10 @@ public final class HCCoreAPI extends JavaPlugin {
                     }
                     PlayerData data = hccore.getDataManager().getData(player);
                     list.add(new PlayerInfo(player.getUniqueId(), data.getSlackId(), new Nickname(data.getUsableName(), data.getNameColor().asHexString())));
+                    searchType = "uuid";
                 } else if (ctx.queryParam("slack") != null) {
                     List<PlayerData> data = hccore.getDataManager().findDataMany(pData -> Objects.equals(pData.getSlackId(), ctx.queryParam("slack")));
-                    if (data == null) {
+                    if (data == null || data.isEmpty()) {
                         ctx.status(404);
                         ctx.json(new APIError("unknown_slack_id", "This Slack ID isn't linked to any Minecraft player!"));
                         return;
@@ -78,20 +87,28 @@ public final class HCCoreAPI extends JavaPlugin {
                     for (PlayerData pData : data) {
                         list.add(new PlayerInfo(pData.offlinePlayer.getUniqueId(), pData.getSlackId(), new Nickname(pData.getUsableName(), pData.getNameColor().asHexString())));
                     }
+                    searchType = "slack";
                 } else if (ctx.queryParam("nick") != null) {
-                    PlayerData data = hccore.getDataManager().findData(pData -> Objects.equals(pData.getUsableName(), ctx.queryParam("nick")));
-                    if (data == null) {
+                    List<PlayerData> data = hccore.getDataManager().findDataMany(pData -> Objects.equals(pData.getUsableName(), ctx.queryParam("nick")));
+                    if (data == null || data.isEmpty()) {
                         ctx.status(404);
                         ctx.json(new APIError("unknown_nick", "This nickname isn't used by any Minecraft player!"));
                         return;
                     }
-                    list.add(new PlayerInfo(data.offlinePlayer.getUniqueId(), data.getSlackId(), new Nickname(data.getUsableName(), data.getNameColor().asHexString())));
+                    for (PlayerData pData : data) {
+                        list.add(new PlayerInfo(pData.offlinePlayer.getUniqueId(), pData.getSlackId(), new Nickname(pData.getUsableName(), pData.getNameColor().asHexString())));
+                    }
+                    searchType = "nick";
                 } else {
                     ctx.status(400);
                     ctx.json(new APIError("no_search", "You didn't include anything to search by! Include either \"?uuid=<a player's UUID>\", \"?slack=<a slack id>\", or \"?nick=<an HTML-encoded nickname>\" at the end of your URL."));
                     return;
                 }
+                RateLimitInfo limitInfo = limits.getLimitInfo(access);
                 ctx.status(200);
+                ctx.header("Search-Type", searchType);
+                ctx.header("Rate-Limit-Remaining", String.valueOf(access.rateLimit - limitInfo.getCount()));
+                ctx.header("Rate-Limit-Reset", String.valueOf(Math.max(0L, (Math.round(limitInfo.getExpiry() - System.currentTimeMillis()) / 1000L))));
                 ctx.json(list);
             });
         });
