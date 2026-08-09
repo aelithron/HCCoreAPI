@@ -84,6 +84,9 @@ public final class HCCoreAPI extends JavaPlugin {
                     return;
                 }
                 limits.countRateLimit(access);
+                RateLimitInfo limitInfo = limits.getLimitInfo(access);
+                ctx.header("Rate-Limit-Remaining", String.valueOf(access.rateLimit - limitInfo.getCount()));
+                ctx.header("Rate-Limit-Reset", String.valueOf(Math.max(0L, (Math.round(limitInfo.getExpiry() - System.currentTimeMillis()) / 1000L))));
                 String lookupType;
                 List<PlayerInfo> list = new ArrayList<>();
                 if (ctx.queryParam("uuid") != null) {
@@ -131,11 +134,8 @@ public final class HCCoreAPI extends JavaPlugin {
                     ctx.json(new APIError("no_param", "You didn't include anything to use in the lookup! Include either \"?uuid=<a player's UUID>\", \"?slack=<a slack id>\", or \"?nick=<an HTML-encoded nickname>\" at the end of your URL."));
                     return;
                 }
-                RateLimitInfo limitInfo = limits.getLimitInfo(access);
                 ctx.status(200);
                 ctx.header("Lookup-Type", lookupType);
-                ctx.header("Rate-Limit-Remaining", String.valueOf(access.rateLimit - limitInfo.getCount()));
-                ctx.header("Rate-Limit-Reset", String.valueOf(Math.max(0L, (Math.round(limitInfo.getExpiry() - System.currentTimeMillis()) / 1000L))));
                 ctx.json(list);
             });
         });
