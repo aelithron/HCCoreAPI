@@ -4,6 +4,7 @@ import com.hackclub.hccoreapi.DataTypes.APIAccess;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.command.Command;
@@ -63,7 +64,7 @@ public class ManageCommand implements TabExecutor {
                     }
                     sender.sendMessage(list.build());
                     return true;
-                case "add":
+                case "create":
                     if (args.length < 3) {
                         sendHelpMsg(sender);
                         return false;
@@ -73,23 +74,31 @@ public class ManageCommand implements TabExecutor {
                         sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There was an error creating this key! Try using a different ID."));
                         return false;
                     }
+                    String slackMsg = createSlackMsg(access);
                     TextComponent component = Component.text()
                             .append(Component.text().color(NamedTextColor.GREEN).decoration(TextDecoration.BOLD, true).content("Key \"" + access.id + "\" created successfully!"))
                             .appendNewline()
                             .appendNewline()
                             .resetStyle()
-                            .append(Component.text().color(NamedTextColor.GREEN).content("API Key: ********").clickEvent(ClickEvent.copyToClipboard(access.key)))
-                            .append(Component.text().color(NamedTextColor.GRAY).content(" (click to copy)").clickEvent(ClickEvent.copyToClipboard(access.key)))
+                            .append(Component.text().color(NamedTextColor.GREEN).content("API Key: ********").clickEvent(ClickEvent.copyToClipboard(access.key)).hoverEvent(HoverEvent.showText(Component.text().content(access.key))))
+                            .append(Component.text().color(NamedTextColor.GRAY).content(" (click to copy)").clickEvent(ClickEvent.copyToClipboard(access.key)).hoverEvent(HoverEvent.showText(Component.text().content(access.key))))
                             .appendNewline()
                             .resetStyle()
                             .append(Component.text().color(NamedTextColor.GREEN).content("Rate Limit: 10 requests/minute"))
                             .appendNewline()
                             .resetStyle()
                             .append(Component.text().color(NamedTextColor.GREEN).content("Enabled: Yes"))
+                            .appendNewline()
+                            .appendNewline()
+                            .resetStyle()
+                            .append(Component.text().color(NamedTextColor.GREEN).content("Click to copy Slack-formatted message").clickEvent(ClickEvent.copyToClipboard(slackMsg)).hoverEvent(HoverEvent.showText(Component.text().content(slackMsg))))
+                            .appendNewline()
+                            .resetStyle()
+                            .append(Component.text().color(NamedTextColor.GRAY).content("(make sure to press Ctrl+Shift+F after pasting)"))
                             .build();
                     sender.sendMessage(component);
                     return true;
-                case "remove":
+                case "delete":
                     if (args.length < 3) {
                         sendHelpMsg(sender);
                         return false;
@@ -162,7 +171,7 @@ public class ManageCommand implements TabExecutor {
         }
         if (args.length == 2) {
             if (args[0].equalsIgnoreCase("keys")) {
-                List<String> options = List.of("list", "add", "remove");
+                List<String> options = List.of("list", "create", "delete", "enable", "disable", "ratelimit");
                 Collections.sort(StringUtil.copyPartialMatches(args[1], options, finalOpts));
                 return finalOpts;
             }
@@ -170,9 +179,9 @@ public class ManageCommand implements TabExecutor {
         if (args.length == 3) {
             if (args[0].equalsIgnoreCase("keys")) {
                 switch (args[1].toLowerCase()) {
-                    case "add":
+                    case "create":
                         return List.of("<id>");
-                    case "remove":
+                    case "delete":
                     case "enable":
                     case "disable":
                     case "ratelimit":
@@ -223,5 +232,19 @@ public class ManageCommand implements TabExecutor {
                 .append(Component.text().color(NamedTextColor.WHITE).content(": Edits the rate limit of a key."))
                 .build();
         sender.sendMessage(helpMsg);
+    }
+
+    private String createSlackMsg(APIAccess access) {
+        String addr = plugin.getConfig().getString("address", "https://api.mc.hackclub.com");
+        return String.format("Hello! You have been issued an API key for the HCCore Web API.%n" +
+                "API Key: `%s`%n" +
+                "API URL: `%s`%n" +
+                "You can make *%,d requests/minute* with this key.%n" +
+                "Rules:%n" +
+                "- Try to stay within your rate limit (shown above), don't make more requests than you need to.%n" +
+                "- Keep your API key confidential, and notify admins immediately if your key is leaked.%n" +
+                "- Don't use this API key for anything other than what you said you would when you requested it.%n" +
+                "- Stay within the Hack Club [Code of Conduct](https://hackclub.com/conduct) with your usage.%n" +
+                "Hope this helps! Feel free to ask an admin if you have any questions or issues (include the key ID `%s` when asking)!", access.key, addr, access.rateLimit, access.id);
     }
 }

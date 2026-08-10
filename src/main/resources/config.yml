@@ -3,6 +3,8 @@
 
 # Port the API will run on
 port: 7600
+# Address that people can use for accessing the API
+address: "https://api.mc.hackclub.com"
 
 # API keys and their specific parameters!
 keys:
