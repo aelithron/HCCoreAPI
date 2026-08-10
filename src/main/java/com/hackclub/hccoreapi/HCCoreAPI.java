@@ -15,8 +15,8 @@ import java.util.logging.Level;
 
 public final class HCCoreAPI extends JavaPlugin {
     private Javalin app;
-    private KeyManager keys;
-    private RateLimitManager limits;
+    KeyManager keys;
+    RateLimitManager limits;
     private HCCorePlugin hccore;
     @Override
     public void onEnable() {

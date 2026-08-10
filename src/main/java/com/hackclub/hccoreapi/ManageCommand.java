@@ -1,7 +1,9 @@
 package com.hackclub.hccoreapi;
 
+import com.hackclub.hccoreapi.DataTypes.APIAccess;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.command.Command;
@@ -22,7 +24,7 @@ public class ManageCommand implements TabExecutor {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (!sender.hasPermission("hccoreapi.manage")) {
-            sender.sendMessage(Component.text().color(NamedTextColor.RED).content("You don't have permission to do this!").color(NamedTextColor.GRAY).content(" (hccoreapi.manage)"));
+            sender.sendMessage(Component.text().color(NamedTextColor.RED).content("You don't have permission to do this!").append(Component.text().color(NamedTextColor.GRAY).content(" (hccoreapi.manage)")));
             return false;
         }
         if (args.length == 0) {
@@ -46,12 +48,40 @@ public class ManageCommand implements TabExecutor {
         }
         if (args[0].equalsIgnoreCase("keys")) {
             switch (args[1].toLowerCase()) {
+                case "list":
+
+                    return true;
                 case "add":
                     if (args.length < 3) {
                         sendHelpMsg(sender);
                         return false;
                     }
-
+                    APIAccess access = plugin.keys.createNewKey(args[2]);
+                    if (access == null) {
+                        sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There was an error creating this key! Try using a different ID."));
+                        return false;
+                    }
+                    TextComponent component = Component.text()
+                            .append(Component.text().color(NamedTextColor.GREEN).decoration(TextDecoration.BOLD, true).content("Key " + access.id + " created successfully!"))
+                            .appendNewline()
+                            .appendNewline()
+                            .resetStyle()
+                            .append(Component.text().color(NamedTextColor.GREEN).content("API Key: ********").clickEvent(ClickEvent.copyToClipboard(access.key)))
+                            .append(Component.text().color(NamedTextColor.GRAY).content(" (click to copy)").clickEvent(ClickEvent.copyToClipboard(access.key)))
+                            .appendNewline()
+                            .resetStyle()
+                            .append(Component.text().color(NamedTextColor.GREEN).content("Rate Limit: 10 requests/minute"))
+                            .appendNewline()
+                            .resetStyle()
+                            .append(Component.text().color(NamedTextColor.GREEN).content("Enabled: Yes"))
+                            .build();
+                    sender.sendMessage(component);
+                    return true;
+                case "remove":
+                    if (args.length < 3) {
+                        sendHelpMsg(sender);
+                        return false;
+                    }
                     return true;
                 default:
                     sendHelpMsg(sender);
@@ -73,7 +103,7 @@ public class ManageCommand implements TabExecutor {
         if (args.length == 2) {
             if (args[0].equalsIgnoreCase("keys")) {
                 List<String> options = List.of("list", "add");
-                Collections.sort(StringUtil.copyPartialMatches(args[0], options, finalOpts));
+                Collections.sort(StringUtil.copyPartialMatches(args[1], options, finalOpts));
                 return finalOpts;
             }
         }

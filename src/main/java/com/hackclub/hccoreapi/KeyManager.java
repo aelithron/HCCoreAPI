@@ -2,11 +2,11 @@ package com.hackclub.hccoreapi;
 
 import com.hackclub.hccoreapi.DataTypes.APIAccess;
 import org.bukkit.configuration.ConfigurationSection;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.security.SecureRandom;
-import java.util.Base64;
-import java.util.Objects;
+import java.util.*;
 
 public class KeyManager {
     private final HCCoreAPI plugin;
@@ -39,6 +39,18 @@ public class KeyManager {
     }
     public boolean isKeyValid(APIAccess access) {
         return plugin.getConfig().getBoolean("keys." + access.id + ".enabled", false);
+    }
+    @NotNull
+    public Map<String, Boolean> getKeyList() {
+        Map<String, Boolean> keys = new HashMap<>();
+        ConfigurationSection keySection = plugin.getConfig().getConfigurationSection("keys");
+        if (keySection == null) {
+            return keys;
+        }
+        for (String id : keySection.getKeys(false)) {
+            keys.put(id, keySection.getBoolean(id + ".enabled", false));
+        }
+        return keys;
     }
     @Nullable
     public APIAccess createNewKey(String id) {
