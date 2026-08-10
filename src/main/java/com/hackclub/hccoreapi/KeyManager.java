@@ -41,14 +41,18 @@ public class KeyManager {
         return plugin.getConfig().getBoolean("keys." + access.id + ".enabled", false);
     }
     @NotNull
-    public Map<String, Boolean> getKeyList() {
-        Map<String, Boolean> keys = new HashMap<>();
+    public List<APIAccess> getKeyList() {
+        List<APIAccess> keys = new ArrayList<>();
         ConfigurationSection keySection = plugin.getConfig().getConfigurationSection("keys");
         if (keySection == null) {
             return keys;
         }
         for (String id : keySection.getKeys(false)) {
-            keys.put(id, keySection.getBoolean(id + ".enabled", false));
+            ConfigurationSection keyData = keySection.getConfigurationSection(id);
+            if (keyData == null) {
+                continue;
+            }
+            keys.add(new APIAccess(id, keyData.getString("key"), keyData.getInt("rate_limit"), keyData.getBoolean("enabled"), this));
         }
         return keys;
     }

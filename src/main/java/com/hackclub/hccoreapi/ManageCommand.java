@@ -14,6 +14,7 @@ import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ManageCommand implements TabExecutor {
     private final HCCoreAPI plugin;
@@ -37,6 +38,20 @@ public class ManageCommand implements TabExecutor {
                 return true;
             case "keys":
                 break;
+            case "resetlimits":
+                if (args.length < 2) {
+                    plugin.limits.resetAllLimits();
+                    sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Reset all rate limits!"));
+                    return true;
+                }
+                APIAccess access = plugin.keys.getAccessByID(args[1]);
+                if (access == null) {
+                    sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There isn't any key by the ID \"" + args[2] + "\"."));
+                    return false;
+                }
+                plugin.limits.resetLimit(access);
+                sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Reset rate limit for key \"" + access.id + "\"!"));
+                return true;
             default:
                 sendHelpMsg(sender);
                 return false;
@@ -48,18 +63,17 @@ public class ManageCommand implements TabExecutor {
         if (args[0].equalsIgnoreCase("keys")) {
             switch (args[1].toLowerCase()) {
                 case "list":
-                    Map<String, Boolean> keys = plugin.keys.getKeyList();
+                    List<APIAccess> keys = plugin.keys.getKeyList();
                     if (keys.isEmpty()) {
                         sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There aren't any API keys configured!"));
                         return false;
                     }
                     TextComponent.Builder list = Component.text().append(Component.text().color(NamedTextColor.GREEN).decoration(TextDecoration.BOLD, true).content("API Key List"));
-                    for (String key : keys.keySet()) {
-                        boolean enabled = keys.get(key);
-                        if (enabled) {
-                            list.appendNewline().resetStyle().append(Component.text().color(NamedTextColor.GREEN).content("- " + key)).append(Component.text().color(NamedTextColor.GRAY).content(" (Enabled)"));
+                    for (APIAccess key : keys) {
+                        if (key.enabled) {
+                            list.appendNewline().resetStyle().append(Component.text().color(NamedTextColor.GREEN).content("- " + key.id)).append(Component.text().color(NamedTextColor.GRAY).content(" (Enabled) (Rate Limit: " + key.rateLimit + "/m)"));
                         } else {
-                            list.appendNewline().resetStyle().append(Component.text().color(NamedTextColor.RED).content("- " + key)).append(Component.text().color(NamedTextColor.GRAY).content(" (Disabled)"));
+                            list.appendNewline().resetStyle().append(Component.text().color(NamedTextColor.RED).content("- " + key.id)).append(Component.text().color(NamedTextColor.GRAY).content(" (Disabled) (Rate Limit: " + key.rateLimit + "/m)"));
                         }
                     }
                     sender.sendMessage(list.build());
@@ -91,7 +105,7 @@ public class ManageCommand implements TabExecutor {
                             .appendNewline()
                             .appendNewline()
                             .resetStyle()
-                            .append(Component.text().color(NamedTextColor.GREEN).content("Click to copy Slack-formatted message").clickEvent(ClickEvent.copyToClipboard(slackMsg)).hoverEvent(HoverEvent.showText(Component.text().content(slackMsg))))
+                            .append(Component.text().color(NamedTextColor.GREEN).content("Click to copy Slack-formatted message!").clickEvent(ClickEvent.copyToClipboard(slackMsg)).hoverEvent(HoverEvent.showText(Component.text().content(slackMsg))))
                             .appendNewline()
                             .resetStyle()
                             .append(Component.text().color(NamedTextColor.GRAY).content("(make sure to press Ctrl+Shift+F after pasting)"))
@@ -151,7 +165,8 @@ public class ManageCommand implements TabExecutor {
                         sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There isn't any key by the ID \"" + args[2] + "\"."));
                         return false;
                     }
-                    sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Enabled key \"" + args[2] + "\" successfully."));
+                    plugin.limits.resetLimit(Objects.requireNonNull(plugin.keys.getAccessByID(args[2])));
+                    sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Updated rate limit to " + newLimit + " on key \"" + args[2] + "\" successfully."));
                     return true;
                 default:
                     break;
@@ -165,7 +180,7 @@ public class ManageCommand implements TabExecutor {
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         List<String> finalOpts = new ArrayList<>();
         if (args.length == 1) {
-            List<String> options = List.of("reload", "keys");
+            List<String> options = List.of("reload", "keys", "resetlimits");
             Collections.sort(StringUtil.copyPartialMatches(args[0], options, finalOpts));
             return finalOpts;
         }
@@ -173,6 +188,11 @@ public class ManageCommand implements TabExecutor {
             if (args[0].equalsIgnoreCase("keys")) {
                 List<String> options = List.of("list", "create", "delete", "enable", "disable", "ratelimit");
                 Collections.sort(StringUtil.copyPartialMatches(args[1], options, finalOpts));
+                return finalOpts;
+            }
+            if (args[0].equalsIgnoreCase("resetlimits")) {
+                Set<String> ids = plugin.keys.getKeyList().stream().map(access -> access.id).collect(Collectors.toSet());
+                Collections.sort(StringUtil.copyPartialMatches(args[1], ids, finalOpts));
                 return finalOpts;
             }
         }
@@ -185,7 +205,7 @@ public class ManageCommand implements TabExecutor {
                     case "enable":
                     case "disable":
                     case "ratelimit":
-                        Set<String> ids = plugin.keys.getKeyList().keySet();
+                        Set<String> ids = plugin.keys.getKeyList().stream().map(access -> access.id).collect(Collectors.toSet());
                         Collections.sort(StringUtil.copyPartialMatches(args[2], ids, finalOpts));
                         return finalOpts;
                 }
@@ -212,7 +232,7 @@ public class ManageCommand implements TabExecutor {
                 .append(Component.text().color(NamedTextColor.WHITE).content(": Lists information about all API keys."))
                 .appendNewline()
                 .resetStyle()
-                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys add <id>"))
+                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys add <id> [ratelimit]"))
                 .append(Component.text().color(NamedTextColor.WHITE).content(": Adds a new API key and sends it to you."))
                 .appendNewline()
                 .resetStyle()
@@ -245,6 +265,6 @@ public class ManageCommand implements TabExecutor {
                 "- Keep your API key confidential, and notify admins immediately if your key is leaked.%n" +
                 "- Don't use this API key for anything other than what you said you would when you requested it.%n" +
                 "- Stay within the Hack Club [Code of Conduct](https://hackclub.com/conduct) with your usage.%n" +
-                "Hope this helps! Feel free to ask an admin if you have any questions or issues (include the key ID `%s` when asking)!", access.key, addr, access.rateLimit, access.id);
+                "Hope this helps! Feel free to ask an admin if you have any questions or issues (include the key ID `%s` when asking).", access.key, addr, access.rateLimit, access.id);
     }
 }

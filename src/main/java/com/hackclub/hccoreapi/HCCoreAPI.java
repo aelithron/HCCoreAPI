@@ -20,7 +20,7 @@ public final class HCCoreAPI extends JavaPlugin {
     private HCCorePlugin hccore;
     @Override
     public void onEnable() {
-        getConfig().options().copyDefaults();
+        getConfig().options().copyDefaults(true);
         saveDefaultConfig();
         int port = getConfig().getInt("port", 7600);
         getCommand("webapi").setExecutor(new ManageCommand(this));

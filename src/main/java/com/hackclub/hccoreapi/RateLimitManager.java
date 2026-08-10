@@ -33,4 +33,7 @@ public class RateLimitManager {
     public void resetAllLimits() {
         rateLimits.clear();
     }
+    public void resetLimit(APIAccess access) {
+        rateLimits.remove(access.id);
+    }
 }
