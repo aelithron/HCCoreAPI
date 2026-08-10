@@ -64,6 +64,15 @@ public class KeyManager {
         section.set("key", key);
         section.set("rate_limit", 10);
         section.set("enabled", true);
+        plugin.saveConfig();
         return new APIAccess(id, key, 10, true, this);
+    }
+    public boolean deleteKey(String id) {
+        if (!plugin.getConfig().contains("keys." + id)) {
+            return false;
+        }
+        plugin.getConfig().set("keys." + id, null);
+        plugin.saveConfig();
+        return true;
     }
 }

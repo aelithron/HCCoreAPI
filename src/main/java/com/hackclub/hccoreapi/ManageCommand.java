@@ -12,9 +12,7 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class ManageCommand implements TabExecutor {
     private final HCCoreAPI plugin;
@@ -49,7 +47,21 @@ public class ManageCommand implements TabExecutor {
         if (args[0].equalsIgnoreCase("keys")) {
             switch (args[1].toLowerCase()) {
                 case "list":
-
+                    Map<String, Boolean> keys = plugin.keys.getKeyList();
+                    if (keys.isEmpty()) {
+                        sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There aren't any API keys configured!"));
+                        return false;
+                    }
+                    TextComponent.Builder list = Component.text().append(Component.text().color(NamedTextColor.GREEN).decoration(TextDecoration.BOLD, true).content("API Key List"));
+                    for (String key : keys.keySet()) {
+                        boolean enabled = keys.get(key);
+                        if (enabled) {
+                            list.appendNewline().resetStyle().append(Component.text().color(NamedTextColor.GREEN).content("- " + key)).append(Component.text().color(NamedTextColor.GRAY).content(" (Enabled)"));
+                        } else {
+                            list.appendNewline().resetStyle().append(Component.text().color(NamedTextColor.RED).content("- " + key)).append(Component.text().color(NamedTextColor.GRAY).content(" (Disabled)"));
+                        }
+                    }
+                    sender.sendMessage(list.build());
                     return true;
                 case "add":
                     if (args.length < 3) {
@@ -62,7 +74,7 @@ public class ManageCommand implements TabExecutor {
                         return false;
                     }
                     TextComponent component = Component.text()
-                            .append(Component.text().color(NamedTextColor.GREEN).decoration(TextDecoration.BOLD, true).content("Key " + access.id + " created successfully!"))
+                            .append(Component.text().color(NamedTextColor.GREEN).decoration(TextDecoration.BOLD, true).content("Key \"" + access.id + "\" created successfully!"))
                             .appendNewline()
                             .appendNewline()
                             .resetStyle()
@@ -82,6 +94,12 @@ public class ManageCommand implements TabExecutor {
                         sendHelpMsg(sender);
                         return false;
                     }
+                    boolean success = plugin.keys.deleteKey(args[2]);
+                    if (!success) {
+                        sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There isn't any key by the ID \"" + args[2] + "\"."));
+                        return false;
+                    }
+                    sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Deleted key \"" + args[2] + "\" successfully."));
                     return true;
                 default:
                     sendHelpMsg(sender);
@@ -102,15 +120,20 @@ public class ManageCommand implements TabExecutor {
         }
         if (args.length == 2) {
             if (args[0].equalsIgnoreCase("keys")) {
-                List<String> options = List.of("list", "add");
+                List<String> options = List.of("list", "add", "remove");
                 Collections.sort(StringUtil.copyPartialMatches(args[1], options, finalOpts));
                 return finalOpts;
             }
         }
         if (args.length == 3) {
             if (args[0].equalsIgnoreCase("keys")) {
-                if (args[1].equalsIgnoreCase("add") || args[1].equalsIgnoreCase("remove")) {
+                if (args[1].equalsIgnoreCase("add")) {
                     return List.of("<id>");
+                }
+                if (args[1].equalsIgnoreCase("remove")) {
+                    Set<String> ids = plugin.keys.getKeyList().keySet();
+                    Collections.sort(StringUtil.copyPartialMatches(args[2], ids, finalOpts));
+                    return finalOpts;
                 }
             }
         }
