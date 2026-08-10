@@ -101,9 +101,51 @@ public class ManageCommand implements TabExecutor {
                     }
                     sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Deleted key \"" + args[2] + "\" successfully."));
                     return true;
+                case "disable":
+                    if (args.length < 3) {
+                        sendHelpMsg(sender);
+                        return false;
+                    }
+                    boolean successDisable = plugin.keys.changeKeyStatus(args[2], false);
+                    if (!successDisable) {
+                        sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There isn't any key by the ID \"" + args[2] + "\"."));
+                        return false;
+                    }
+                    sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Disabled key \"" + args[2] + "\" successfully."));
+                    return true;
+                case "enable":
+                    if (args.length < 3) {
+                        sendHelpMsg(sender);
+                        return false;
+                    }
+                    boolean successEnable = plugin.keys.changeKeyStatus(args[2], true);
+                    if (!successEnable) {
+                        sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There isn't any key by the ID \"" + args[2] + "\"."));
+                        return false;
+                    }
+                    sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Enabled key \"" + args[2] + "\" successfully."));
+                    return true;
+                case "ratelimit":
+                    if (args.length < 4) {
+                        sendHelpMsg(sender);
+                        return false;
+                    }
+                    int newLimit;
+                    try {
+                        newLimit = Integer.parseInt(args[3]);
+                    } catch (NumberFormatException ignored) {
+                        sender.sendMessage(Component.text().color(NamedTextColor.RED).content("The number provided was invalid, please make sure to type a non-decimal number after the ID!"));
+                        return false;
+                    }
+                    boolean successRateLimit = plugin.keys.changeKeyLimit(args[2], newLimit);
+                    if (!successRateLimit) {
+                        sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There isn't any key by the ID \"" + args[2] + "\"."));
+                        return false;
+                    }
+                    sender.sendMessage(Component.text().color(NamedTextColor.GREEN).content("Enabled key \"" + args[2] + "\" successfully."));
+                    return true;
                 default:
-                    sendHelpMsg(sender);
-                    return false;
+                    break;
             }
         }
         sendHelpMsg(sender);
@@ -127,14 +169,22 @@ public class ManageCommand implements TabExecutor {
         }
         if (args.length == 3) {
             if (args[0].equalsIgnoreCase("keys")) {
-                if (args[1].equalsIgnoreCase("add")) {
-                    return List.of("<id>");
+                switch (args[1].toLowerCase()) {
+                    case "add":
+                        return List.of("<id>");
+                    case "remove":
+                    case "enable":
+                    case "disable":
+                    case "ratelimit":
+                        Set<String> ids = plugin.keys.getKeyList().keySet();
+                        Collections.sort(StringUtil.copyPartialMatches(args[2], ids, finalOpts));
+                        return finalOpts;
                 }
-                if (args[1].equalsIgnoreCase("remove")) {
-                    Set<String> ids = plugin.keys.getKeyList().keySet();
-                    Collections.sort(StringUtil.copyPartialMatches(args[2], ids, finalOpts));
-                    return finalOpts;
-                }
+            }
+        }
+        if (args.length == 4) {
+            if (args[0].equalsIgnoreCase("keys") && args[1].equalsIgnoreCase("ratelimit")) {
+                return List.of("<number>");
             }
         }
         return new ArrayList<>();
@@ -159,6 +209,18 @@ public class ManageCommand implements TabExecutor {
                 .resetStyle()
                 .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys remove <id>"))
                 .append(Component.text().color(NamedTextColor.WHITE).content(": Removes an API key permanently."))
+                .appendNewline()
+                .resetStyle()
+                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys disable <id>"))
+                .append(Component.text().color(NamedTextColor.WHITE).content(": Temporarily disables an API key."))
+                .appendNewline()
+                .resetStyle()
+                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys enable <id>"))
+                .append(Component.text().color(NamedTextColor.WHITE).content(": Re-enables a previously disabled API key."))
+                .appendNewline()
+                .resetStyle()
+                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys ratelimit <id> <number>"))
+                .append(Component.text().color(NamedTextColor.WHITE).content(": Edits the rate limit of a key."))
                 .build();
         sender.sendMessage(helpMsg);
     }

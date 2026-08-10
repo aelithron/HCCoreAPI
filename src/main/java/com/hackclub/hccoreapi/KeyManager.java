@@ -62,8 +62,8 @@ public class KeyManager {
         String key = Base64.getUrlEncoder().withoutPadding().encodeToString(random);
         ConfigurationSection section = plugin.getConfig().createSection("keys." + id);
         section.set("key", key);
-        section.set("rate_limit", 10);
         section.set("enabled", true);
+        section.set("rate_limit", 10);
         plugin.saveConfig();
         return new APIAccess(id, key, 10, true, this);
     }
@@ -72,6 +72,22 @@ public class KeyManager {
             return false;
         }
         plugin.getConfig().set("keys." + id, null);
+        plugin.saveConfig();
+        return true;
+    }
+    public boolean changeKeyStatus(String id, boolean enabled) {
+        if (!plugin.getConfig().contains("keys." + id)) {
+            return false;
+        }
+        plugin.getConfig().set("keys." + id + ".enabled", enabled);
+        plugin.saveConfig();
+        return true;
+    }
+    public boolean changeKeyLimit(String id, int rateLimit) {
+        if (!plugin.getConfig().contains("keys." + id)) {
+            return false;
+        }
+        plugin.getConfig().set("keys." + id + ".rate_limit", rateLimit);
         plugin.saveConfig();
         return true;
     }
