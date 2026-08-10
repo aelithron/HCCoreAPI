@@ -138,6 +138,18 @@ public final class HCCoreAPI extends JavaPlugin {
                 ctx.header("Lookup-Type", lookupType);
                 ctx.json(list);
             });
+            config.routes.get("/health", ctx -> {
+                Boolean authStatus = null;
+                if (ctx.header("Authorization") != null) {
+                    String apiKey = Objects.requireNonNull(ctx.header("Authorization")).split("Bearer ")[1];
+                    APIAccess access = keys.getAccessByKey(apiKey);
+                    authStatus = (access == null || access.validate());
+                }
+                ctx.status(200);
+                ctx.header("Cache-Control", "no-store, no-cache, must-revalidate");
+                ctx.header("Expires", "0");
+                ctx.json(new APIHealth(getPluginMeta().getVersion(), authStatus));
+            });
         });
     }
 }

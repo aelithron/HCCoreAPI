@@ -57,7 +57,7 @@ public class KeyManager {
         return keys;
     }
     @Nullable
-    public APIAccess createNewKey(String id) {
+    public APIAccess createNewKey(String id, int rateLimit) {
         if (plugin.getConfig().contains("keys." + id)) {
             return null;
         }
@@ -67,9 +67,9 @@ public class KeyManager {
         ConfigurationSection section = plugin.getConfig().createSection("keys." + id);
         section.set("key", key);
         section.set("enabled", true);
-        section.set("rate_limit", 10);
+        section.set("rate_limit", rateLimit);
         plugin.saveConfig();
-        return new APIAccess(id, key, 10, true, this);
+        return new APIAccess(id, key, rateLimit, true, this);
     }
     public boolean deleteKey(String id) {
         if (!plugin.getConfig().contains("keys." + id)) {

@@ -83,7 +83,16 @@ public class ManageCommand implements TabExecutor {
                         sendHelpMsg(sender);
                         return false;
                     }
-                    APIAccess access = plugin.keys.createNewKey(args[2]);
+                    int rateLimit = 10;
+                    if (args.length >= 4) {
+                        try {
+                            rateLimit = Integer.parseInt(args[3]);
+                        } catch (NumberFormatException ignored) {
+                            sender.sendMessage(Component.text().color(NamedTextColor.RED).content("The number provided was invalid, please make sure to type a non-decimal number after the ID!"));
+                            return false;
+                        }
+                    }
+                    APIAccess access = plugin.keys.createNewKey(args[2], rateLimit);
                     if (access == null) {
                         sender.sendMessage(Component.text().color(NamedTextColor.RED).content("There was an error creating this key! Try using a different ID."));
                         return false;
@@ -98,7 +107,7 @@ public class ManageCommand implements TabExecutor {
                             .append(Component.text().color(NamedTextColor.GRAY).content(" (click to copy)").clickEvent(ClickEvent.copyToClipboard(access.key)).hoverEvent(HoverEvent.showText(Component.text().content(access.key))))
                             .appendNewline()
                             .resetStyle()
-                            .append(Component.text().color(NamedTextColor.GREEN).content("Rate Limit: 10 requests/minute"))
+                            .append(Component.text().color(NamedTextColor.GREEN).content("Rate Limit: " + access.rateLimit + " requests/minute"))
                             .appendNewline()
                             .resetStyle()
                             .append(Component.text().color(NamedTextColor.GREEN).content("Enabled: Yes"))
@@ -212,8 +221,16 @@ public class ManageCommand implements TabExecutor {
             }
         }
         if (args.length == 4) {
-            if (args[0].equalsIgnoreCase("keys") && args[1].equalsIgnoreCase("ratelimit")) {
-                return List.of("<number>");
+            if (args[0].equalsIgnoreCase("keys")) {
+                switch (args[1].toLowerCase()) {
+                    case "ratelimit":
+                        return List.of("<number>");
+                    case "create":
+                        return List.of("[ratelimit]");
+                    default:
+                        break;
+                }
+
             }
         }
         return new ArrayList<>();
