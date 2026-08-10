@@ -4,6 +4,8 @@ import com.hackclub.hccoreapi.DataTypes.APIAccess;
 import org.bukkit.configuration.ConfigurationSection;
 
 import javax.annotation.Nullable;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Objects;
 
 public class KeyManager {
@@ -37,5 +39,19 @@ public class KeyManager {
     }
     public boolean isKeyValid(APIAccess access) {
         return plugin.getConfig().getBoolean("keys." + access.id + ".enabled", false);
+    }
+    @Nullable
+    public APIAccess createNewKey(String id) {
+        if (plugin.getConfig().contains("keys." + id)) {
+            return null;
+        }
+        byte[] random = new byte[24];
+        new SecureRandom().nextBytes(random);
+        String key = Base64.getUrlEncoder().withoutPadding().encodeToString(random);
+        ConfigurationSection section = plugin.getConfig().createSection("keys." + id);
+        section.set("key", key);
+        section.set("rate_limit", 10);
+        section.set("enabled", true);
+        return new APIAccess(id, key, 10, true, this);
     }
 }

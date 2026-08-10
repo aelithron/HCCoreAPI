@@ -18,3 +18,8 @@ commands:
       - hccapi
       - coreapi
       - api
+
+permissions:
+  hccoreapi.manage:
+    description: Allows managing the web API.
+    default: op
