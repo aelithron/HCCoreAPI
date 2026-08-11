@@ -7,17 +7,24 @@ import io.javalin.Javalin;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 public final class HCCoreAPI extends JavaPlugin {
     private Javalin app;
     KeyManager keys;
     RateLimitManager limits;
+    Logger reqLogger;
     private HCCorePlugin hccore;
+    private FileHandler logHandler;
     @Override
     public void onEnable() {
         getConfig().options().copyDefaults(true);
@@ -35,6 +42,7 @@ public final class HCCoreAPI extends JavaPlugin {
         }
         keys = new KeyManager(this);
         limits = new RateLimitManager();
+        initReqLogger();
         app = getApp();
         getLogger().log(Level.INFO, "Starting HCCore-API server (on port " + port + ")...");
         app.start(port);
@@ -45,6 +53,7 @@ public final class HCCoreAPI extends JavaPlugin {
         limits.resetAllLimits();
         getLogger().log(Level.INFO, "Shutting down HCCore-API server...");
         app.stop();
+        logHandler.close();
     }
 
     public void reloadPlugin() {
@@ -150,6 +159,45 @@ public final class HCCoreAPI extends JavaPlugin {
                 ctx.header("Expires", "0");
                 ctx.json(new APIHealth(getPluginMeta().getVersion(), authStatus));
             });
+            config.routes.after(ctx -> {
+                String keyID = null;
+                boolean valid = false;
+                int rateLimit = 0;
+                int rateLimitUsed = 0;
+                if (ctx.header("Authorization") != null) {
+                    String apiKey = Objects.requireNonNull(ctx.header("Authorization")).split("Bearer ")[1];
+                    APIAccess access = keys.getAccessByKey(apiKey);
+                    if (access != null) {
+                        keyID = access.id;
+                        rateLimit = access.rateLimit;
+                        RateLimitInfo info = limits.getLimitInfo(access);
+                        if (info != null) {
+                          rateLimitUsed = info.getCount();
+                        }
+                        if (access.enabled && access.validate()) {
+                            valid = true;
+                        }
+                    }
+                }
+                reqLogger.log(Level.INFO, String.format("%s %s - %d <auth: %s - valid: %b> <ratelimit: %d/%d>", ctx.method(), ctx.fullUrl(), ctx.status().getCode(), keyID, valid, rateLimitUsed, rateLimit));
+            });
         });
+    }
+
+    private void initReqLogger() {
+        if (!getDataFolder().exists()) {
+            getDataFolder().mkdir();
+        }
+        File log = new File(getDataFolder(), "requests.log");
+        try {
+            logHandler = new FileHandler(log.getAbsolutePath(), true);
+        } catch (IOException e) {
+            getLogger().log(Level.SEVERE, "Error setting up the request logger: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+        logHandler.setFormatter(new ReqLogFormatter());
+        reqLogger = Logger.getLogger("HCCore API");
+        reqLogger.addHandler(logHandler);
+        reqLogger.setUseParentHandlers(false);
     }
 }
