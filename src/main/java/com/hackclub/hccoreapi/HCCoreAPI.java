@@ -4,6 +4,9 @@ import com.hackclub.hccore.HCCorePlugin;
 import com.hackclub.hccore.PlayerData;
 import com.hackclub.hccoreapi.DataTypes.*;
 import io.javalin.Javalin;
+import io.javalin.openapi.plugin.OpenApiPlugin;
+import io.javalin.openapi.plugin.redoc.ReDocPlugin;
+import io.javalin.openapi.plugin.swagger.SwaggerPlugin;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -72,6 +75,24 @@ public final class HCCoreAPI extends JavaPlugin {
         return Javalin.create(config -> {
             config.startup.showJavalinBanner = false;
             config.startup.showOldJavalinVersionWarning = false;
+            config.registerPlugin(new OpenApiPlugin(openApi -> {
+                openApi.withDefinitionConfiguration((ver, def) -> {
+                    def.withBearerAuth();
+                    def.info(info -> {
+                        info.title("HCCore Web API");
+                        info.description("Powerful web API that allows getting data from the Hack Club Minecraft server and HCCore plugin (https://github.com/hackclub/HCCore).");
+                        info.contact("Nova (aka Aelithron)", "https://github.com/aelithron/HCCoreAPI", "nova@novatea.dev");
+                        info.license("MIT", "https://github.com/aelithron/HCCoreAPI/blob/main/LICENSE", "MIT");
+                        info.termsOfService("https://hackclub.com/conduct");
+                    });
+                    def.server(server -> {
+                        server.url(getConfig().getString("address", "https://api.mc.hackclub.com"));
+                        server.description("Production");
+                    });
+                });
+            }));
+            config.registerPlugin(new SwaggerPlugin());
+            config.registerPlugin(new ReDocPlugin());
             config.routes.get("/player", ctx -> {
                 String apiKey = ctx.header("Authorization");
                 if (apiKey == null || apiKey.split("Bearer ").length < 2) {
@@ -160,6 +181,11 @@ public final class HCCoreAPI extends JavaPlugin {
                 ctx.json(new APIHealth(getPluginMeta().getVersion(), authStatus));
             });
             config.routes.after(ctx -> {
+                ctx.header("Access-Control-Allow-Origin", "*");
+                ctx.header("Access-Control-Allow-Headers", "Authorization, Content-Type");
+                ctx.header("Access-Control-Allow-Methods", "GET, OPTIONS");
+                ctx.header("Access-Control-Max-Age", "86400");
+                ctx.contentType("application/json");
                 String keyID = null;
                 String path = ctx.path();
                 boolean valid = false;
@@ -183,8 +209,13 @@ public final class HCCoreAPI extends JavaPlugin {
                         }
                     }
                 }
-
                 reqLogger.log(Level.INFO, String.format("%s %s - %d <auth: %s - valid: %b> <ratelimit: %d/%d>", ctx.method(), path, ctx.status().getCode(), keyID, valid, rateLimitUsed, rateLimit));
+            });
+            config.routes.error(404, ctx -> {
+               if (ctx.result() != null) {
+                   return;
+               }
+               ctx.json(new APIError("no-route", "The requested route " + ctx.path() + " doesn't exist!"));
             });
         });
     }

@@ -15,6 +15,13 @@ dependencies {
     compileOnly("com.github.hackclub:HCCore:multi-fetch-data-SNAPSHOT")
     implementation("io.javalin:javalin:7.2.2")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
+    val openapi = "7.2.2"
+    annotationProcessor("io.javalin.community.openapi:openapi-annotation-processor:$openapi")
+    implementation("io.javalin.community.openapi:javalin-openapi-plugin:$openapi")
+    // Optional: Swagger UI
+    implementation("io.javalin.community.openapi:javalin-swagger-plugin:$openapi")
+    // Optional: ReDoc
+    implementation("io.javalin.community.openapi:javalin-redoc-plugin:$openapi")
 }
 
 java {
