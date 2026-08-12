@@ -161,9 +161,13 @@ public final class HCCoreAPI extends JavaPlugin {
             });
             config.routes.after(ctx -> {
                 String keyID = null;
+                String path = ctx.path();
                 boolean valid = false;
                 int rateLimit = 0;
                 int rateLimitUsed = 0;
+                if (ctx.queryString() != null) {
+                   path = path + "?" + ctx.queryString();
+                }
                 if (ctx.header("Authorization") != null) {
                     String apiKey = Objects.requireNonNull(ctx.header("Authorization")).split("Bearer ")[1];
                     APIAccess access = keys.getAccessByKey(apiKey);
@@ -179,7 +183,8 @@ public final class HCCoreAPI extends JavaPlugin {
                         }
                     }
                 }
-                reqLogger.log(Level.INFO, String.format("%s %s - %d <auth: %s - valid: %b> <ratelimit: %d/%d>", ctx.method(), ctx.fullUrl(), ctx.status().getCode(), keyID, valid, rateLimitUsed, rateLimit));
+
+                reqLogger.log(Level.INFO, String.format("%s %s - %d <auth: %s - valid: %b> <ratelimit: %d/%d>", ctx.method(), path, ctx.status().getCode(), keyID, valid, rateLimitUsed, rateLimit));
             });
         });
     }

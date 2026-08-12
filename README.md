@@ -11,11 +11,12 @@ This API allows programmatic access to certain data from [HCCore](https://github
 - Powerful API key system
 - Rate limit system per API key
 - Powerful in-game management command
+- Detailed logging for all requests made
 - More coming soon!
 
 ## Setup/Installation
 1. Download the latest [HCCore release](https://github.com/hackclub/HCCore/releases) and its dependencies ([ProtocolLib](https://www.spigotmc.org/resources/protocollib.1997/) and [UltimateAdvancementAPI](https://www.spigotmc.org/resources/ultimateadvancementapi-1-15-26-2.95585/)).
 2. Download the latest [HCCoreAPI release](https://github.com/aelithron/HCCoreAPI/releases) (this plugin).
 3. Put all four of these `.jar` files in your server's `plugins/` folder, then restart your server.
-4. Run the following command (coming soon): `/webapi keys add example`
+4. Run the following command: `/webapi keys add example`
 5. Start making API calls with the key you get back!

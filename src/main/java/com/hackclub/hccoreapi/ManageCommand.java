@@ -10,6 +10,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
+import org.bukkit.entity.Player;
 import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -98,27 +99,51 @@ public class ManageCommand implements TabExecutor {
                         return false;
                     }
                     String slackMsg = createSlackMsg(access);
-                    TextComponent component = Component.text()
-                            .append(Component.text().color(NamedTextColor.GREEN).decoration(TextDecoration.BOLD, true).content("Key \"" + access.id + "\" created successfully!"))
-                            .appendNewline()
-                            .appendNewline()
-                            .resetStyle()
-                            .append(Component.text().color(NamedTextColor.GREEN).content("API Key: ********").clickEvent(ClickEvent.copyToClipboard(access.key)).hoverEvent(HoverEvent.showText(Component.text().content(access.key))))
-                            .append(Component.text().color(NamedTextColor.GRAY).content(" (click to copy)").clickEvent(ClickEvent.copyToClipboard(access.key)).hoverEvent(HoverEvent.showText(Component.text().content(access.key))))
-                            .appendNewline()
-                            .resetStyle()
-                            .append(Component.text().color(NamedTextColor.GREEN).content("Rate Limit: " + access.rateLimit + " requests/minute"))
-                            .appendNewline()
-                            .resetStyle()
-                            .append(Component.text().color(NamedTextColor.GREEN).content("Enabled: Yes"))
-                            .appendNewline()
-                            .appendNewline()
-                            .resetStyle()
-                            .append(Component.text().color(NamedTextColor.GREEN).content("Click to copy Slack-formatted message!").clickEvent(ClickEvent.copyToClipboard(slackMsg)).hoverEvent(HoverEvent.showText(Component.text().content(slackMsg))))
-                            .appendNewline()
-                            .resetStyle()
-                            .append(Component.text().color(NamedTextColor.GRAY).content("(make sure to press Ctrl+Shift+F after pasting)"))
-                            .build();
+                    TextComponent component;
+                    if (sender instanceof Player) {
+                        component = Component.text()
+                                .append(Component.text().color(NamedTextColor.GREEN).decoration(TextDecoration.BOLD, true).content("Key \"" + access.id + "\" created successfully!"))
+                                .appendNewline()
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().color(NamedTextColor.GREEN).content("API Key: ********").clickEvent(ClickEvent.copyToClipboard(access.key)).hoverEvent(HoverEvent.showText(Component.text().content(access.key))))
+                                .append(Component.text().color(NamedTextColor.GRAY).content(" (click to copy)").clickEvent(ClickEvent.copyToClipboard(access.key)).hoverEvent(HoverEvent.showText(Component.text().content(access.key))))
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().color(NamedTextColor.GREEN).content("Rate Limit: " + access.rateLimit + " request(s)/minute"))
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().color(NamedTextColor.GREEN).content("Enabled: Yes"))
+                                .appendNewline()
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().color(NamedTextColor.GREEN).content("Click to copy Slack-formatted message!").clickEvent(ClickEvent.copyToClipboard(slackMsg)).hoverEvent(HoverEvent.showText(Component.text().content(slackMsg))))
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().color(NamedTextColor.GRAY).content("(make sure to press Ctrl+Shift+F after pasting)"))
+                                .build();
+                    } else {
+                        component = Component.text()
+                                .append(Component.text().color(NamedTextColor.GREEN).decoration(TextDecoration.BOLD, true).content("Key \"" + access.id + "\" created successfully!"))
+                                .appendNewline()
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().color(NamedTextColor.GREEN).content("API Key: " + access.key))
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().color(NamedTextColor.GREEN).content("Rate Limit: " + access.rateLimit + " request(s)/minute"))
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().color(NamedTextColor.GREEN).content("Enabled: Yes"))
+                                .appendNewline()
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().color(NamedTextColor.GREEN).content("Slack-formatted message (make sure to press Ctrl+Shift+F after pasting):"))
+                                .appendNewline()
+                                .resetStyle()
+                                .append(Component.text().content(slackMsg))
+                                .build();
+                    }
                     sender.sendMessage(component);
                     return true;
                 case "delete":
@@ -249,11 +274,11 @@ public class ManageCommand implements TabExecutor {
                 .append(Component.text().color(NamedTextColor.WHITE).content(": Lists information about all API keys."))
                 .appendNewline()
                 .resetStyle()
-                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys add <id> [ratelimit]"))
-                .append(Component.text().color(NamedTextColor.WHITE).content(": Adds a new API key and sends it to you."))
+                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys create <id> [ratelimit]"))
+                .append(Component.text().color(NamedTextColor.WHITE).content(": Creates a new API key and shows its information."))
                 .appendNewline()
                 .resetStyle()
-                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys remove <id>"))
+                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys delete <id>"))
                 .append(Component.text().color(NamedTextColor.WHITE).content(": Removes an API key permanently."))
                 .appendNewline()
                 .resetStyle()
@@ -266,7 +291,11 @@ public class ManageCommand implements TabExecutor {
                 .appendNewline()
                 .resetStyle()
                 .append(Component.text().color(NamedTextColor.BLUE).content("/webapi keys ratelimit <id> <number>"))
-                .append(Component.text().color(NamedTextColor.WHITE).content(": Edits the rate limit of a key."))
+                .append(Component.text().color(NamedTextColor.WHITE).content(": Edits the rate limit of an API key."))
+                .appendNewline()
+                .resetStyle()
+                .append(Component.text().color(NamedTextColor.BLUE).content("/webapi resetlimits [id]"))
+                .append(Component.text().color(NamedTextColor.WHITE).content(": Resets the rate limit on one key, or all if no ID is specified."))
                 .build();
         sender.sendMessage(helpMsg);
     }
