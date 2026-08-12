@@ -97,18 +97,7 @@ public final class HCCoreAPI extends JavaPlugin {
             config.registerPlugin(new SwaggerPlugin());
             config.registerPlugin(new ReDocPlugin());
             config.routes.get("/player", this::playerInfo);
-            config.routes.get("/health", ctx -> {
-                Boolean authStatus = null;
-                if (ctx.header("Authorization") != null) {
-                    String apiKey = Objects.requireNonNull(ctx.header("Authorization")).split("Bearer ")[1];
-                    APIAccess access = keys.getAccessByKey(apiKey);
-                    authStatus = (access == null || access.validate());
-                }
-                ctx.status(200);
-                ctx.header("Cache-Control", "no-store, no-cache, must-revalidate");
-                ctx.header("Expires", "0");
-                ctx.json(new APIHealth(getPluginMeta().getVersion(), authStatus));
-            });
+            config.routes.get("/health", this::health);
             config.routes.after(ctx -> {
                 ctx.header("Access-Control-Allow-Origin", "*");
                 ctx.header("Access-Control-Allow-Headers", "Authorization, Content-Type");
@@ -152,39 +141,83 @@ public final class HCCoreAPI extends JavaPlugin {
             path = "/player",
             methods = {HttpMethod.GET},
             tags = {"Players"},
-            security = {@OpenApiSecurity(name = "BearerAuth")},
-            summary = "This lets you get a player's data from their UUID, Slack ID, or HCCore nickname.\n" +
-                    "You must specify at least one of uuid, slack, or nick, and any more than one will be ignored.",
+            summary = "Get a player's data from their UUID, Slack ID, or HCCore nickname.",
+            description = "This lets you get a player's data from their UUID, Slack ID, or HCCore nickname. You must specify one parameter out of uuid, slack, or nick (any more than one will be ignored).",
             queryParams = {
                     @OpenApiParam(name = "uuid", type = UUID.class),
                     @OpenApiParam(name = "slack"),
                     @OpenApiParam(name = "nick")
             },
             responses = {
-                    @OpenApiResponse(status = "200", content = {@OpenApiContent(from = PlayerInfo.class)}, description = "Information about the player."),
-                    @OpenApiResponse(status = "429", content = {@OpenApiContent(from = APIError.class)}, description = "Rate limited."),
-                    @OpenApiResponse(status = "400", content = {@OpenApiContent(from = APIError.class, exampleObjects = {
-                            @OpenApiExampleProperty(name = "No lookup parameter provided", value = """
-                                    {
-                                      "error": "no_param",
-                                      "message": "You didn't include anything to use in the lookup! Include either "?uuid=<a player's UUID>", "?slack=<a slack id>", or "?nick=<an HTML-encoded nickname>" at the end of your URL."
-                                    }
-                                    """),
-                            @OpenApiExampleProperty(name = "Provided UUID is invalid", value = """
-                                    {
-                                      "error": "invalid_uuid",
-                                      "message": "This UUID is malformed! Make sure you are sending a valid, hyphenated UUID, such as eb7ea62d-b7aa-4d6e-b68a-d7e948780f03."
-                                    }
-                                    """)
-                    })}, description = "A mistake was made in writing the request"),
-                    @OpenApiResponse(status = "404", content = {@OpenApiContent(from = APIError.class)}, description = "The provided search doesn't match any player(s)."),
+                    @OpenApiResponse(status = "200", content = {@OpenApiContent(from = PlayerInfo[].class, example = """
+                            [
+                              {
+                                "uuid": "eb7ea62d-b7aa-4d6e-b68a-d7e948780f03",
+                                "slack": "U08RJ1PEM7X",
+                                "nick": {
+                                  "name": "Nova",
+                                  "color": "#E6E6FA"
+                                }
+                              }
+                            ]
+                            """)}, description = "Information about the player."),
+                    @OpenApiResponse(status = "429", content = {@OpenApiContent(from = APIError.class, example = """
+                            {
+                              "error": "rate_limited",
+                              "message": "The provided API key has exceeded its rate limit of 10 request(s) per minute. Please retry in 35 second(s)."
+                            }
+                            """)}, description = "Your key is rate limited."),
+                    @OpenApiResponse(status = "401", content = {@OpenApiContent(from = APIError.class, example = """
+                            {
+                              "error": "unauthorized",
+                              "message": "No API key was found in your request, or it was malformed! Make sure you are sending an Authorization header in your request, with the word Bearer followed by a valid API key."
+                            }
+                            """)}, description = "Authorization is missing or malformed."),
+                    @OpenApiResponse(status = "403", content = {@OpenApiContent(from = APIError.class, example = """
+                            {
+                              "error": "forbidden",
+                              "message": "The provided API key is invalid or has been disabled! Check that your key exists, is correctly entered, that you haven't been told about it being disabled, and that your Authorization header is properly formatted ("Authorization": "Bearer <your_key>")."
+                            }
+                            """)}, description = "API key provided in authorization is invalid/disabled."),
+                    @OpenApiResponse(status = "400", content = {@OpenApiContent(from = APIError.class, example = """
+                            // No lookup parameter provided
+                            {
+                              "error": "no_param",
+                              "message": "You didn't include anything to use in the lookup! Include either "?uuid=<a player's UUID>", "?slack=<a slack id>", or "?nick=<an HTML-encoded nickname>" at the end of your URL."
+                            }
+                            
+                            // Provided UUID is invalid
+                            {
+                              "error": "invalid_uuid",
+                              "message": "This UUID is malformed! Make sure you are sending a valid, hyphenated UUID, such as eb7ea62d-b7aa-4d6e-b68a-d7e948780f03."
+                            }
+                            """)}, description = "A mistake was made in writing the request."),
+                    @OpenApiResponse(status = "404", content = {@OpenApiContent(from = APIError.class, example = """
+                            // UUID search not found
+                            {
+                              "error": "unknown_uuid",
+                              "message": "This player hasn't played on the server before!"
+                            }
+                            
+                            // Slack ID search not found
+                            {
+                              "error": "unknown_slack_id",
+                              "message": "This Slack ID isn't linked to any Minecraft player!"
+                            }
+                            
+                            // HCCore nickname search not found
+                            {
+                              "error": "unknown_nick",
+                              "message": "This nickname isn't used by any Minecraft player!"
+                            }
+                            """)}, description = "The provided search doesn't match any player(s)."),
             }
     )
     private void playerInfo(Context ctx) {
         String apiKey = ctx.header("Authorization");
         if (apiKey == null || apiKey.split("Bearer ").length < 2) {
             ctx.status(401);
-            ctx.json(new APIError("unauthorized", "No API key was found in your request, or it was malformed! Make sure you are sending an \"Authorization\" header in your request, with the word Bearer followed by a valid API key."));
+            ctx.json(new APIError("unauthorized", "No API key was found in your request, or it was malformed! Make sure you are sending an Authorization header in your request, with the word Bearer followed by a valid API key."));
             return;
         }
         APIAccess access = keys.getAccessByKey(apiKey.split("Bearer ")[1]);
@@ -258,6 +291,33 @@ public final class HCCoreAPI extends JavaPlugin {
         ctx.status(200);
         ctx.header("Lookup-Type", lookupType);
         ctx.json(list);
+    }
+
+    @OpenApi(
+            path = "/health",
+            methods = {HttpMethod.GET},
+            tags = {"System"},
+            summary = "Check the API's health and version info.",
+            description = "Check the API's health, what version it is on, and verify your authentication.",
+            responses = {@OpenApiResponse(status = "200", content = {@OpenApiContent(from = APIHealth.class, example = """
+                    {
+                      "status": "ok",
+                      "version": "v1.0.0",
+                      "authorized": true
+                    }
+                    """)}, description = "Information about the API's health.")}
+    )
+    private void health(Context ctx) {
+        Boolean authStatus = null;
+        if (ctx.header("Authorization") != null) {
+            String apiKey = Objects.requireNonNull(ctx.header("Authorization")).split("Bearer ")[1];
+            APIAccess access = keys.getAccessByKey(apiKey);
+            authStatus = (access == null || access.validate());
+        }
+        ctx.status(200);
+        ctx.header("Cache-Control", "no-store, no-cache, must-revalidate");
+        ctx.header("Expires", "0");
+        ctx.json(new APIHealth(getPluginMeta().getVersion(), authStatus));
     }
 
     private void initReqLogger() {
