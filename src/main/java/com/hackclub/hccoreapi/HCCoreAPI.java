@@ -84,14 +84,13 @@ public final class HCCoreAPI extends JavaPlugin {
                     def.info(info -> {
                         info.title("HCCore Web API");
                         info.description("Powerful web API that allows getting data from the Hack Club Minecraft server and HCCore plugin (https://github.com/hackclub/HCCore).");
-                        info.contact("Nova (aka Aelithron)", "https://github.com/aelithron/HCCoreAPI", "nova@novatea.dev");
+                        info.contact("HCCoreAPI", "https://github.com/aelithron/HCCoreAPI", "nova@novatea.dev");
                         info.license("MIT", "https://github.com/aelithron/HCCoreAPI/blob/main/LICENSE", "MIT");
                         info.termsOfService("https://hackclub.com/conduct");
                     });
                     def.server(server -> {
                         server.url(getConfig().getString("address", "https://api.mc.hackclub.com"));
                         server.description("Production");
-                        server.variable("version", "API version", "v1", "v1");
                     });
                 });
             }));
@@ -152,9 +151,11 @@ public final class HCCoreAPI extends JavaPlugin {
     @OpenApi(
             path = "/player",
             methods = {HttpMethod.GET},
+            tags = {"Players"},
+            security = {@OpenApiSecurity(name = "BearerAuth")},
             summary = "This lets you get a player's data from their UUID, Slack ID, or HCCore nickname.\n" +
                     "You must specify at least one of uuid, slack, or nick, and any more than one will be ignored.",
-            pathParams = {
+            queryParams = {
                     @OpenApiParam(name = "uuid", type = UUID.class),
                     @OpenApiParam(name = "slack"),
                     @OpenApiParam(name = "nick")
@@ -162,11 +163,21 @@ public final class HCCoreAPI extends JavaPlugin {
             responses = {
                     @OpenApiResponse(status = "200", content = {@OpenApiContent(from = PlayerInfo.class)}, description = "Information about the player."),
                     @OpenApiResponse(status = "429", content = {@OpenApiContent(from = APIError.class)}, description = "Rate limited."),
-                    @OpenApiResponse(status = "400", content = {@OpenApiContent(from = APIError.class)}, description = "No lookup parameter provided."),
-                    @OpenApiResponse(status = "400", content = {@OpenApiContent(from = APIError.class)}, description = ""),
-                    @OpenApiResponse(status = "404", content = {@OpenApiContent(from = APIError.class)}, description = ""),
-                    @OpenApiResponse(status = "404", content = {@OpenApiContent(from = APIError.class)}, description = ""),
-                    @OpenApiResponse(status = "404", content = {@OpenApiContent(from = APIError.class)}, description = "")
+                    @OpenApiResponse(status = "400", content = {@OpenApiContent(from = APIError.class, exampleObjects = {
+                            @OpenApiExampleProperty(name = "No lookup parameter provided", value = """
+                                    {
+                                      "error": "no_param",
+                                      "message": "You didn't include anything to use in the lookup! Include either "?uuid=<a player's UUID>", "?slack=<a slack id>", or "?nick=<an HTML-encoded nickname>" at the end of your URL."
+                                    }
+                                    """),
+                            @OpenApiExampleProperty(name = "Provided UUID is invalid", value = """
+                                    {
+                                      "error": "invalid_uuid",
+                                      "message": "This UUID is malformed! Make sure you are sending a valid, hyphenated UUID, such as eb7ea62d-b7aa-4d6e-b68a-d7e948780f03."
+                                    }
+                                    """)
+                    })}, description = "A mistake was made in writing the request"),
+                    @OpenApiResponse(status = "404", content = {@OpenApiContent(from = APIError.class)}, description = "The provided search doesn't match any player(s)."),
             }
     )
     private void playerInfo(Context ctx) {
@@ -179,7 +190,9 @@ public final class HCCoreAPI extends JavaPlugin {
         APIAccess access = keys.getAccessByKey(apiKey.split("Bearer ")[1]);
         if (access == null || !access.validate()) {
             ctx.status(403);
-            ctx.json(new APIError("forbidden", "The provided API key is invalid or has been disabled! Check that your key exists, is correctly entered, that you haven't been told about it being disabled, and that your Authorization header is properly formatted (\"Authorization\": \"Bearer <your_key>\")."));
+            ctx.json(new APIError("forbidden", """
+            The provided API key is invalid or has been disabled! Check that your key exists, is correctly entered, that you haven't been told about it being disabled, and that your Authorization header is properly formatted ("Authorization": "Bearer <your_key>")."
+            """));
             return;
         }
         if (limits.isRateLimited(access)) {
@@ -237,7 +250,9 @@ public final class HCCoreAPI extends JavaPlugin {
             lookupType = "nick";
         } else {
             ctx.status(400);
-            ctx.json(new APIError("no_param", "You didn't include anything to use in the lookup! Include either \"?uuid=<a player's UUID>\", \"?slack=<a slack id>\", or \"?nick=<an HTML-encoded nickname>\" at the end of your URL."));
+            ctx.json(new APIError("no_param", """
+            You didn't include anything to use in the lookup! Include either "?uuid=<a player's UUID>", "?slack=<a Slack ID>", or "?nick=<an HCCore nickname>" at the end of your URL."));
+            """));
             return;
         }
         ctx.status(200);
