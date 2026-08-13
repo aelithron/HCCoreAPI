@@ -39,5 +39,4 @@ Go to the `GET /player` route, and click "Try it out". You can then use **one** 
 
 Note that this uses my information, you can feel free to use your own if you have played on the server before.
 ### In-game Command
-If you want to test out the in-game command, I suggest you run your own server with the plugin using [these instructions](https://github.com/aelithron/HCCoreAPI/blob/main/README.md#setupinstallation). I have attached a video of it below though:
-![Demo](https://user-cdn.hackclub-assets.com/019ffa01-336a-7558-88aa-b924c2473eae/Screencast_20260813_011625.webm)
+If you want to test out the in-game command, I suggest you run your own server with the plugin using [these instructions](https://github.com/aelithron/HCCoreAPI/blob/main/README.md#setupinstallation). I have attached a video of it [here](https://user-cdn.hackclub-assets.com/019ffa01-336a-7558-88aa-b924c2473eae/Screencast_20260813_011625.webm) though! :3
