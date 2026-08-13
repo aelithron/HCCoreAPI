@@ -82,7 +82,8 @@ public final class HCCoreAPI extends JavaPlugin {
                     def.withBearerAuth();
                     def.info(info -> {
                         info.title("HCCore Web API");
-                        info.description("Powerful web API that allows getting data from the Hack Club Minecraft server and HCCore plugin (https://github.com/hackclub/HCCore).");
+                        info.description("Powerful web API that allows getting data from the Hack Club Minecraft server and HCCore plugin (https://github.com/hackclub/HCCore)." +
+                                " You can find the plugin's source code and an installation guide at https://github.com/aelithron/HCCoreAPI.");
                         info.contact("HCCoreAPI", "https://github.com/aelithron/HCCoreAPI", "nova@novatea.dev");
                         info.license("MIT", "https://github.com/aelithron/HCCoreAPI/blob/main/LICENSE", "MIT");
                         info.termsOfService("https://hackclub.com/conduct");
@@ -93,15 +94,26 @@ public final class HCCoreAPI extends JavaPlugin {
                     });
                 });
             }));
-            config.registerPlugin(new SwaggerPlugin());
+            config.registerPlugin(new SwaggerPlugin(swagger -> {
+                swagger.withUiPath("/");
+            }));
             config.registerPlugin(new ReDocPlugin());
+            config.bundledPlugins.enableCors(cors -> {
+                cors.addRule(rule -> {
+                    rule.maxAge = 86400;
+                    rule.anyHost();
+                    for (String header : List.of("Content-Type", "Rate-Limit-Remaining", "Rate-Limit-Reset", "Retry-After", "Lookup-Type")) {
+                        rule.exposeHeader(header);
+                    }
+                });
+            });
+            config.bundledPlugins.enableHttpAllowedMethodsOnRoutes();
             config.routes.get("/player", this::playerInfo);
             config.routes.get("/health", this::health);
             config.routes.after(ctx -> {
-                ctx.header("Access-Control-Allow-Origin", "*");
-                ctx.header("Access-Control-Allow-Headers", "Authorization, Content-Type");
-                ctx.header("Access-Control-Allow-Methods", "GET, OPTIONS");
-                ctx.header("Access-Control-Max-Age", "86400");
+                if (!ctx.path().startsWith("/player") && !ctx.path().startsWith("/health")) {
+                    return;
+                }
                 String keyID = null;
                 String path = ctx.path();
                 boolean valid = false;
@@ -176,32 +188,29 @@ public final class HCCoreAPI extends JavaPlugin {
                     @OpenApiResponse(status = "403", content = {@OpenApiContent(from = APIError.class, example = """
                             {
                               "error": "forbidden",
-                              "message": "The provided API key is invalid or has been disabled! Check that your key exists, is correctly entered, that you haven't been told about it being disabled, and that your Authorization header is properly formatted ("Authorization": "Bearer <your_key>")."
+                              "message": "The provided API key is invalid or has been disabled! Check that your key exists, is correctly entered, that you haven't been told about it being disabled, and that your Authorization header is properly formatted."
                             }
                             """)}, description = "API key provided in authorization is invalid/disabled."),
-                    @OpenApiResponse(status = "400", content = {@OpenApiContent(from = APIError.class, example = """
-                            // No lookup parameter provided
-                            {
-                              "error": "no_param",
-                              "message": "You didn't include anything to use in the lookup! Include either "?uuid=<a player's UUID>", "?slack=<a slack id>", or "?nick=<an HTML-encoded nickname>" at the end of your URL."
-                            }
-                            
-                            // Provided UUID is invalid
-                            {
-                              "error": "invalid_uuid",
-                              "message": "This UUID is malformed! Make sure you are sending a valid, hyphenated UUID, such as eb7ea62d-b7aa-4d6e-b68a-d7e948780f03."
-                            }
-                            """)}, description = "A mistake was made in writing the request."),
+                    @OpenApiResponse(status = "400", content = {@OpenApiContent(from = APIError.class, exampleObjects = {
+                            @OpenApiExampleProperty(name = "Error format for missing lookup parameter", objects = {
+                                    @OpenApiExampleProperty(name = "error", value = "no_param"),
+                                    @OpenApiExampleProperty(name = "message", value = "You didn't include anything to use in the lookup! Include either \"?uuid=<a player's UUID>\", \"?slack=<a slack id>\", or \"?nick=<an HTML-encoded nickname>\" at the end of your URL.")
+                            }),
+                            @OpenApiExampleProperty(name = "Error format for invalid UUID", objects = {
+                                    @OpenApiExampleProperty(name = "error", value = "invalid_uuid"),
+                                    @OpenApiExampleProperty(name = "message", value = "This UUID is malformed! Make sure you are sending a valid, hyphenated UUID, such as eb7ea62d-b7aa-4d6e-b68a-d7e948780f03.")
+                            })
+                    })}, description = "A mistake was made in writing the request."),
                     @OpenApiResponse(status = "404", content = {@OpenApiContent(from = APIError.class, exampleObjects = {
-                            @OpenApiExampleProperty(name = "UUID", objects = {
+                            @OpenApiExampleProperty(name = "Error format for unknown UUID", objects = {
                                     @OpenApiExampleProperty(name = "error", value = "unknown_uuid"),
                                     @OpenApiExampleProperty(name = "message", value = "This player hasn't played on the server before!")
                             }),
-                            @OpenApiExampleProperty(name = "Slack ID", objects = {
+                            @OpenApiExampleProperty(name = "Error format for unknown Slack ID", objects = {
                                     @OpenApiExampleProperty(name = "error", value = "unknown_slack_id"),
                                     @OpenApiExampleProperty(name = "message", value = "This Slack ID isn't linked to any Minecraft player!")
                             }),
-                            @OpenApiExampleProperty(name = "HCCore Nickname", objects = {
+                            @OpenApiExampleProperty(name = "Error format for unknown HCCore Nickname", objects = {
                                     @OpenApiExampleProperty(name = "error", value = "unknown_nick"),
                                     @OpenApiExampleProperty(name = "message", value = "This nickname isn't used by any Minecraft player!")
                             })
@@ -312,7 +321,7 @@ public final class HCCoreAPI extends JavaPlugin {
         ctx.status(200);
         ctx.header("Cache-Control", "no-store, no-cache, must-revalidate");
         ctx.header("Expires", "0");
-        ctx.json(new APIHealth(getPluginMeta().getVersion(), authStatus));
+        ctx.json(new APIHealth("ok", getPluginMeta().getVersion(), authStatus));
     }
 
     private void initReqLogger() {
