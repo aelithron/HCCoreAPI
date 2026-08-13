@@ -301,6 +301,7 @@ public final class HCCoreAPI extends JavaPlugin {
             path = "/health",
             methods = {HttpMethod.GET},
             tags = {"System"},
+            security = {@OpenApiSecurity(name = "BearerAuth")},
             summary = "Check the API's health and version info.",
             description = "Check the API's health, what version it is on, and verify your authentication.",
             responses = {@OpenApiResponse(status = "200", content = {@OpenApiContent(from = APIHealth.class, example = """
