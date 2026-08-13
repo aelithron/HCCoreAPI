@@ -21,7 +21,6 @@ import java.util.UUID;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 public final class HCCoreAPI extends JavaPlugin {
     private Javalin app;
@@ -141,6 +140,7 @@ public final class HCCoreAPI extends JavaPlugin {
             path = "/player",
             methods = {HttpMethod.GET},
             tags = {"Players"},
+            security = {@OpenApiSecurity(name = "BearerAuth")},
             summary = "Get a player's data from their UUID, Slack ID, or HCCore nickname.",
             description = "This lets you get a player's data from their UUID, Slack ID, or HCCore nickname. You must specify one parameter out of uuid, slack, or nick (any more than one will be ignored).",
             queryParams = {
@@ -192,25 +192,20 @@ public final class HCCoreAPI extends JavaPlugin {
                               "message": "This UUID is malformed! Make sure you are sending a valid, hyphenated UUID, such as eb7ea62d-b7aa-4d6e-b68a-d7e948780f03."
                             }
                             """)}, description = "A mistake was made in writing the request."),
-                    @OpenApiResponse(status = "404", content = {@OpenApiContent(from = APIError.class, example = """
-                            // UUID search not found
-                            {
-                              "error": "unknown_uuid",
-                              "message": "This player hasn't played on the server before!"
-                            }
-                            
-                            // Slack ID search not found
-                            {
-                              "error": "unknown_slack_id",
-                              "message": "This Slack ID isn't linked to any Minecraft player!"
-                            }
-                            
-                            // HCCore nickname search not found
-                            {
-                              "error": "unknown_nick",
-                              "message": "This nickname isn't used by any Minecraft player!"
-                            }
-                            """)}, description = "The provided search doesn't match any player(s)."),
+                    @OpenApiResponse(status = "404", content = {@OpenApiContent(from = APIError.class, exampleObjects = {
+                            @OpenApiExampleProperty(name = "UUID", objects = {
+                                    @OpenApiExampleProperty(name = "error", value = "unknown_uuid"),
+                                    @OpenApiExampleProperty(name = "message", value = "This player hasn't played on the server before!")
+                            }),
+                            @OpenApiExampleProperty(name = "Slack ID", objects = {
+                                    @OpenApiExampleProperty(name = "error", value = "unknown_slack_id"),
+                                    @OpenApiExampleProperty(name = "message", value = "This Slack ID isn't linked to any Minecraft player!")
+                            }),
+                            @OpenApiExampleProperty(name = "HCCore Nickname", objects = {
+                                    @OpenApiExampleProperty(name = "error", value = "unknown_nick"),
+                                    @OpenApiExampleProperty(name = "message", value = "This nickname isn't used by any Minecraft player!")
+                            })
+                    })}, description = "The provided search doesn't match any player(s)."),
             }
     )
     private void playerInfo(Context ctx) {
